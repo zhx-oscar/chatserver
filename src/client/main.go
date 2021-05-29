@@ -15,98 +15,10 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
-
-type ChatType int
-
-const (
-	ChatType_Normal ChatType = iota
-	ChatType_Test
-)
-
-type ChatMode int
-
-const (
-	ChatMode_Broadcast ChatMode = iota
-	ChatMode_Private
-)
-
-type CtoSMsgType int8
-
-const (
-	CtoSMsgType_GetUserList CtoSMsgType = iota
-	CtoSMsgType_Chat
-)
-
-type StoCMsgType int8
-
-const (
-	StoCMsgType_UserList StoCMsgType = iota
-	StoCMsgType_Chat
+	. "util"
 )
 
 var wg sync.WaitGroup
-
-type Chat struct {
-	Length        int16  // 数据部分长度
-	ChatMode      int8   //聊天类型
-	PrAddrPortLen int16  // ip端口长度
-	PrAddrPort    []byte // ip端口
-	Content       []byte // 聊天内容
-}
-
-const (
-	ChatLengthsz    = 2
-	ChatModesz      = 1
-	PrAddrPortLensz = 2
-	PackageLengthsz = 2
-	MsgTypesz       = 1
-)
-
-func (ch *Chat) Pack() []byte {
-	bs := make([]byte, ch.Length)
-	binary.BigEndian.PutUint16(bs[:ChatLengthsz], uint16(ch.Length))
-	bs[ChatLengthsz] = byte(ch.ChatMode)
-	binary.BigEndian.PutUint16(bs[ChatLengthsz+ChatModesz:ChatLengthsz+ChatModesz+PrAddrPortLensz], uint16(ch.PrAddrPortLen))
-	copy(bs[ChatLengthsz+ChatModesz+PrAddrPortLensz:ChatLengthsz+ChatModesz+PrAddrPortLensz+ch.PrAddrPortLen], ch.PrAddrPort[:])
-	copy(bs[ChatLengthsz+ChatModesz+PrAddrPortLensz+ch.PrAddrPortLen:], ch.Content[:])
-
-	return bs
-}
-
-type Package struct {
-	Length  int16  // 数据部分长度
-	MsgType int8   // 消息类型
-	Msg     []byte // 数据部分
-}
-
-func (p *Package) Pack(writer io.Writer) error {
-	bs := make([]byte, p.Length)
-	binary.BigEndian.PutUint16(bs[:PackageLengthsz], uint16(p.Length))
-	bs[PackageLengthsz] = byte(p.MsgType)
-	copy(bs[PackageLengthsz+MsgTypesz:], p.Msg[:])
-	if _, err := writer.Write(bs); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *Package) Unpack(reader io.Reader) error {
-	bs := make([]byte, PackageLengthsz+MsgTypesz)
-	if _, err := io.ReadFull(reader, bs); err != nil {
-		return err
-	}
-	p.Length = int16(binary.BigEndian.Uint16(bs[:PackageLengthsz]))
-	p.MsgType = int8(bs[PackageLengthsz])
-
-	p.Msg = make([]byte, p.Length-(PackageLengthsz+MsgTypesz))
-	if _, err := io.ReadFull(reader, p.Msg); err != nil {
-		return err
-	}
-
-	return nil
-}
 
 var (
 	chatType  = flag.Int("type", int(ChatType_Normal), "聊天类型:0.普通1.测试")
@@ -283,9 +195,9 @@ func handleConn(conn net.Conn, ctx context.Context, wg *sync.WaitGroup, chatType
 	scanner := bufio.NewScanner(conn)
 	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		if !atEOF {
-			if len(data) >= PackageLengthsz+MsgTypesz {
+			if len(data) >= int(PackageLengthSize+MsgTypeSize) {
 				length := int16(0)
-				binary.Read(bytes.NewReader(data[:PackageLengthsz]), binary.BigEndian, &length)
+				binary.Read(bytes.NewReader(data[:PackageLengthSize]), binary.BigEndian, &length)
 				if int(length) <= len(data) {
 					return int(length), data[:int(length)], nil
 				}
@@ -380,8 +292,8 @@ func marshalChat(chatMode int8, prAddrPort []byte, content []byte) []byte {
 		Content:    content,
 	}
 
-	chat.PrAddrPortLen = int16(len(chat.PrAddrPort))
-	chat.Length = ChatLengthsz + ChatModesz + PrAddrPortLensz + int16(len(chat.PrAddrPort)) + int16(len(chat.Content))
+	chat.PrAddrPortLen = uint16(len(chat.PrAddrPort))
+	chat.Length = ChatLengthSize + ChatModeSize + PrAddrPortLenSize + uint16(len(chat.PrAddrPort)) + uint16(len(chat.Content))
 
 	return chat.Pack()
 }
@@ -392,6 +304,6 @@ func sendMsg(dst io.Writer, msgType int8, msg []byte) {
 		Msg:     msg,
 	}
 
-	pack.Length = PackageLengthsz + MsgTypesz + int16(len(pack.Msg))
+	pack.Length = PackageLengthSize + MsgTypeSize + uint16(len(pack.Msg))
 	pack.Pack(dst)
 }
