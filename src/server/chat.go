@@ -45,12 +45,11 @@ func init() {
 }
 
 var (
-	Error         *log.Logger
-	Info          *log.Logger
-	listenPort    = flag.String("lport", "8000", "服务器监听端口")
-	pprofPort     = flag.String("pport", "6060", "服务器pprof端口")
-	listnerClosed = make(chan bool, 1)
-	panicChan     = make(chan interface{}, 1)
+	Error      *log.Logger
+	Info       *log.Logger
+	listenPort = flag.String("lport", "8000", "服务器监听端口")
+	pprofPort  = flag.String("pport", "6060", "服务器pprof端口")
+	panicChan  = make(chan interface{}, 1)
 )
 
 func main() {
@@ -77,7 +76,6 @@ func main() {
 		}
 
 		cancel()
-		listnerClosed <- true
 		listener.Close()
 		timeout, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		srv.Shutdown(timeout)
@@ -144,7 +142,6 @@ func serve(listener net.Listener, ctx context.Context) {
 			}
 
 			select {
-			case <-listnerClosed:
 			default:
 				Error.Printf(fmt.Sprintf("accept err: ", err))
 			}
