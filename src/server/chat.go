@@ -81,7 +81,10 @@ func main() {
 		srv.Shutdown(timeout)
 	}()
 
-	go serve(listener, ctx)
+	var wgMain sync.WaitGroup
+
+	wgMain.Add(1)
+	go serve(listener, ctx, &wgMain)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1,
@@ -98,10 +101,12 @@ func main() {
 		default:
 		}
 	}
+
+	wgMain.Wait()
 }
 
 // 监听客户端连接请求，并创建连接
-func serve(listener net.Listener, ctx context.Context) {
+func serve(listener net.Listener, ctx context.Context, wgMain *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
 			panicChan <- fmt.Sprint(err)
@@ -110,8 +115,10 @@ func serve(listener net.Listener, ctx context.Context) {
 		fmt.Println("serve 退出")
 	}()
 
-	go broadcaster(ctx)
-	go logInfo(ctx)
+	wgMain.Add(1)
+	go broadcaster(ctx, wgMain)
+	wgMain.Add(1)
+	go logInfo(ctx, wgMain)
 
 	var tempDelay time.Duration
 	for {
@@ -153,8 +160,11 @@ func serve(listener net.Listener, ctx context.Context) {
 			break
 		}
 
-		go handleConn(conn, ctx)
+		wgMain.Add(1)
+		go handleConn(conn, ctx, wgMain)
 	}
+
+	wgMain.Done()
 }
 
 type client chan<- *Package
@@ -169,7 +179,7 @@ var (
 )
 
 // 处理广播聊天消息
-func broadcaster(ctx context.Context) {
+func broadcaster(ctx context.Context, wgMain *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
 			panicChan <- fmt.Sprint(err)
@@ -194,10 +204,12 @@ func broadcaster(ctx context.Context) {
 			close(cli)
 		}
 	}
+
+	wgMain.Done()
 }
 
 // 统计消息处理数量
-func logInfo(ctx context.Context) {
+func logInfo(ctx context.Context, wgMain *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
 			panicChan <- fmt.Sprint(err)
@@ -216,10 +228,12 @@ func logInfo(ctx context.Context) {
 			bcMsgSent = 0
 		}
 	}
+
+	wgMain.Done()
 }
 
 // 客户端发送消息的处理
-func handleConn(conn net.Conn, ctx context.Context) {
+func handleConn(conn net.Conn, ctx context.Context, wgMain *sync.WaitGroup) {
 	defer func() {
 		if err := recover(); err != nil {
 			panicChan <- fmt.Sprint(err)
@@ -285,6 +299,8 @@ func handleConn(conn net.Conn, ctx context.Context) {
 	mu.Lock()
 	delete(clients, who)
 	mu.Unlock()
+
+	wgMain.Done()
 }
 
 // 消息相关逻辑处理
