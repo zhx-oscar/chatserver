@@ -1,0 +1,7 @@
+2021/07/10 19:45:00 chat.go:152: accept err: %!!(MISSING)(EXTRA *net.OpError=accept tcp [::]:8000: use of closed network connection)
+2021/07/10 20:12:04 chat.go:152: accept err: %!!(MISSING)(EXTRA *net.OpError=accept tcp [::]:8000: use of closed network connection)
+2021/07/10 20:21:39 chat.go:152: accept err: %!!(MISSING)(EXTRA *net.OpError=accept tcp [::]:8000: use of closed network connection)
+2021/07/10 20:28:16 chat.go:152: accept err: %!!(MISSING)(EXTRA *net.OpError=accept tcp [::]:8000: use of closed network connection)
+2021/07/10 20:43:46 chat.go:328: EOF
+2021/07/10 20:46:15 chat.go:152: accept err: %!!(MISSING)(EXTRA *net.OpError=accept tcp [::]:8000: use of closed network connection)
+2021/07/10 20:59:17 chat.go:152: accept err: %!!(MISSING)(EXTRA *net.OpError=accept tcp [::]:8000: use of closed network connection)

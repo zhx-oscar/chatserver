@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -267,29 +266,32 @@ func handleConn(conn net.Conn, ctx context.Context, wgMain *sync.WaitGroup) {
 
 	entering <- wch
 
-	scanner := bufio.NewScanner(conn)
-	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		if !atEOF {
-			if len(data) >= int(PackageLengthSize+MsgTypeSize) {
-				length := int16(0)
-				binary.Read(bytes.NewReader(data[:PackageLengthSize]), binary.BigEndian, &length)
-				if int(length) <= len(data) {
-					return int(length), data[:int(length)], nil
-				}
-			}
-		}
-		return
-	})
-
-	for scanner.Scan() {
+	var buff, content []byte
+	buff = make([]byte, 10240)
+	for {
 		select {
 		case <-ctx.Done():
 			break
 		default:
 		}
 
-		rch <- scanner.Text()
+		readLen, err := conn.Read(buff)
+		if err != nil {
+			fmt.Println("读数据错误:", err)
+			break
+		}
 
+		content = append(content, buff[:readLen]...)
+		for len(content) >= int(PackageLengthSize+MsgTypeSize) {
+			length := int16(0)
+			binary.Read(bytes.NewReader(content[:PackageLengthSize]), binary.BigEndian, &length)
+			if int(length) > len(content) {
+				break
+			}
+
+			rch <- string(content[:int(length)])
+			content = content[length:]
+		}
 	}
 
 	leaving <- wch
