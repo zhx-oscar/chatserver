@@ -62,7 +62,7 @@ func main() {
 	listener, err := net.Listen("tcp", "0.0.0.0:"+*listenPort)
 	if err != nil {
 		Error.Printf("listen err: %s", err.Error())
-		timeout, _ := context.WithTimeout(context.Background(), 5*time.Second)
+		timeout, _ := context.WithTimeout(context.Background(), 5*time.Minute)
 		srv.Shutdown(timeout)
 
 		return
@@ -275,6 +275,7 @@ func handleConn(conn net.Conn, ctx context.Context, wgMain *sync.WaitGroup) {
 		default:
 		}
 
+		conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 		readLen, err := conn.Read(buff)
 		if err != nil {
 			fmt.Println("读数据错误:", err)
@@ -294,6 +295,7 @@ func handleConn(conn net.Conn, ctx context.Context, wgMain *sync.WaitGroup) {
 		}
 	}
 
+	close(rch)
 	leaving <- wch
 	sendMsg(messages, int8(StoCMsgType_Chat), []byte(who+" has left"))
 	wg.Wait()
